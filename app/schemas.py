@@ -49,12 +49,18 @@ class ReservationResponse(BaseModel):
     id: int
     booking_reference: str
     user_id: int
+
+    event_name: str
     ticket_type_id: int
+    ticket_type_name: str
+    ticket_price: int
+
     quantity: int
+    total_price: int
     status: str
     expires_at: datetime
     created_at: datetime
-   
+
     model_config = ConfigDict(from_attributes=True)
 
 

@@ -6,6 +6,9 @@
 venv/
 ENV/
 
+.env.*
+!.env.example
+
 # Python cache & bytecode
 __pycache__/
 *.py[cod]
@@ -30,3 +33,12 @@ htmlcov/
 # OS files
 .DS_Store
 Thumbs.db
+
+# Type checking / linting caches
+.mypy_cache/
+.ruff_cache/
+
+# Logs
+*.log
+
+reset_organizer_password.py

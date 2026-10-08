@@ -17,6 +17,50 @@ router = APIRouter(
 )
 
 
+def build_reservation_response(
+    reservation: models.Reservation,
+    db: Session
+) -> ReservationResponse:
+    ticket_type = (
+        db.query(models.TicketType)
+        .filter(models.TicketType.id == reservation.ticket_type_id)
+        .first()
+    )
+
+    if not ticket_type:
+        raise HTTPException(
+            status_code=404,
+            detail="Ticket type not found"
+        )
+
+    event = (
+        db.query(models.Event)
+        .filter(models.Event.id == ticket_type.event_id)
+        .first()
+    )
+
+    if not event:
+        raise HTTPException(
+            status_code=404,
+            detail="Event not found"
+        )
+
+    return ReservationResponse(
+        id=reservation.id,
+        booking_reference=reservation.booking_reference,
+        user_id=reservation.user_id,
+        event_name=event.name,
+        ticket_type_name=ticket_type.name,
+        ticket_price=ticket_type.price,
+        ticket_type_id=reservation.ticket_type_id,
+        quantity=reservation.quantity,
+        total_price=ticket_type.price * reservation.quantity,
+        status=reservation.status,
+        expires_at=reservation.expires_at,
+        created_at=reservation.created_at,
+    )
+
+
 @router.post(
     "/reservations",
     response_model=ReservationResponse,
@@ -42,7 +86,6 @@ def create_reservation(
             detail="Ticket type not found"
         )
 
-    # Use naive UTC datetime consistently with the current database setup
     now = utc_now()
 
     active_and_confirmed = db.query(models.Reservation).filter(
@@ -68,7 +111,6 @@ def create_reservation(
             detail=f"Only {available_quantity} tickets available"
         )
 
-    # Reservation remains active for 10 minutes
     expires_at = now + timedelta(minutes=10)
 
     booking_reference = (
@@ -88,7 +130,7 @@ def create_reservation(
     db.commit()
     db.refresh(new_reservation)
 
-    return new_reservation
+    return build_reservation_response(new_reservation, db)
 
 
 @router.get(
@@ -110,8 +152,10 @@ def get_my_reservations(
         .all()
     )
 
-    return reservations
-
+    return [
+        build_reservation_response(reservation, db)
+        for reservation in reservations
+    ]
 
 
 @router.put(
@@ -153,7 +197,7 @@ def cancel_reservation(
     db.commit()
     db.refresh(reservation)
 
-    return reservation
+    return build_reservation_response(reservation, db)
 
 
 @router.put(
@@ -190,7 +234,6 @@ def confirm_reservation(
             detail="Only active reservations can be confirmed"
         )
 
-    # Check expiration using naive UTC datetime
     if reservation.expires_at <= utc_now():
         reservation.status = "expired"
         db.commit()
@@ -205,7 +248,7 @@ def confirm_reservation(
     db.commit()
     db.refresh(reservation)
 
-    return reservation
+    return build_reservation_response(reservation, db)
 
 
 @router.get(
@@ -230,7 +273,10 @@ def get_my_bookings(
         .all()
     )
 
-    return bookings
+    return [
+        build_reservation_response(booking, db)
+        for booking in bookings
+    ]
 
 
 @router.get(
@@ -257,4 +303,4 @@ def get_booking_by_reference(
             detail="Booking not found"
         )
 
-    return booking
+    return build_reservation_response(booking, db)
